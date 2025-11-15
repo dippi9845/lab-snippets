@@ -170,8 +170,7 @@ class Peer:
         if not isinstance(message, bytes):
             message = message.encode()
         for peer in self.peers:
-            # TODO: implement actual TCP
-            self.__socket.sendto(message, peer)
+            self._connnections[peer].send(message)
 
     def receive(self):
         # TODO: implement actual TCP
