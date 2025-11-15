@@ -148,6 +148,8 @@ def local_ips():
             if addr.family == socket.AF_INET:
                     yield addr.address
 
+EXIT_MESSAGE = "<EXIT>"
+
 class Peer:
     def __init__(self, port, peers=None):
         if peers is None:
@@ -158,9 +160,12 @@ class Peer:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect(peer)
             # TODO: maybe is needed a callback
-            self._connnections[peer] = Connection(sock)
+            self._connnections[peer] = Connection(sock, self.__connetion_callback)
+        self.__connection_tread = threading.Thread(target=self.__handle_incoming_connections, daemon=True)
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__socket.bind(address(port=port))
+        self.__socket.listen()
+        print(f"Peer listening on {self.local_address}")
 
     @property
     def local_address(self):
@@ -172,31 +177,28 @@ class Peer:
         for peer in self.peers:
             self._connnections[peer].send(message)
 
-    def receive(self):
-        # TODO: implement actual TCP
-        message, address = self.__socket.recvfrom(1024)
-        self.peers.add(address)
-        return message.decode(), address
+    def __connetion_callback(self, event, payload, connection : Connection, error):
+        match event:
+            case 'message':
+                if payload.endswith(EXIT_MESSAGE):
+                    print(f"Connection with peer {connection.remote_address} closed")
+                    self.peers.remove(connection.remote_address)
+                else:
+                    print(message(payload, connection.remote_address))
+            case 'error':
+                print(error)
+            case 'close':
+                print(f"Connection with peer {connection.remote_address} closed")
+                self.peers.remove(connection.remote_address)
+    
+    def __handle_incoming_connections(self):
+        try:
+            socket, address = self.__socket.accept()
+            connection = Connection(socket, self.__connetion_callback)
+            self._connnections[address] = connection
+            self.peers.add(address)
+        except Exception as e:
+            print(e)
 
     def close(self):
         self.__socket.close()
-
-class AsyncPeer(Peer):
-    def __init__(self, port, peers=None, callback=None):
-        super().__init__(port, peers)
-        self.__receiver_thread = threading.Thread(target=self.__handle_incoming_messages, daemon=True)
-        self.__callback = callback or (lambda *_: None)
-        self.__receiver_thread.start()
-    
-    def __handle_incoming_messages(self):
-        while True:
-            message, address = self.receive()
-            if message.endswith(EXIT_MESSAGE):
-                self.peers.remove(address)
-            self.on_message_received(message, address)
-    
-    def __handle_incoming_connections(self):
-        
-
-    def on_message_received(self, payload, sender):
-        self.__callback(payload, sender)
