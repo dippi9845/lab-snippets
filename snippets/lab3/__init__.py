@@ -153,6 +153,12 @@ class Peer:
         if peers is None:
             peers = set()
         self.peers = {address(*peer) for peer in peers}
+        self._connnections = {}
+        for peer in self.peers:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect(peer)
+            # TODO: maybe is needed a callback
+            self._connnections[peer] = Connection(sock)
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__socket.bind(address(port=port))
 
@@ -164,9 +170,11 @@ class Peer:
         if not isinstance(message, bytes):
             message = message.encode()
         for peer in self.peers:
+            # TODO: implement actual TCP
             self.__socket.sendto(message, peer)
 
     def receive(self):
+        # TODO: implement actual TCP
         message, address = self.__socket.recvfrom(1024)
         self.peers.add(address)
         return message.decode(), address
@@ -187,6 +195,9 @@ class AsyncPeer(Peer):
             if message.endswith(EXIT_MESSAGE):
                 self.peers.remove(address)
             self.on_message_received(message, address)
+    
+    def __handle_incoming_connections(self):
+        
 
     def on_message_received(self, payload, sender):
         self.__callback(payload, sender)
