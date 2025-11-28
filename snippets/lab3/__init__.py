@@ -159,7 +159,6 @@ class Peer:
         for peer in self.peers:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect(peer)
-            # TODO: maybe is needed a callback
             self._connnections[peer] = Connection(sock, self.__connetion_callback)
         self.__connection_tread = threading.Thread(target=self.__handle_incoming_connections, daemon=True)
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
