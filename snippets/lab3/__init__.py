@@ -1,7 +1,6 @@
 from snippets.lab2 import *
 import threading
 
-
 # Uncomment this line to observe timeout errors more often.
 # Beware: short timeouts can make demonstrations more difficult to follow.
 # socket.setdefaulttimeout(5) # set default timeout for blocking operations to 5 seconds
@@ -151,20 +150,24 @@ def local_ips():
 EXIT_MESSAGE = "<EXIT>\0"
 
 class Peer:
-    def __init__(self, port, peers=None):
+    def __init__(self, port, peers=None, discover_peer=None):
         if peers is None:
             peers = set()
         self.peers = {address(*peer) for peer in peers}
         self._connnections = {}
+        self.__peers_sockets = {}
         for peer in self.peers:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect(peer)
             self._connnections[peer] = Connection(sock, self.__connetion_callback)
         self.__connection_tread = threading.Thread(target=self.__handle_incoming_connections, daemon=True)
+        self.__connection_tread.start()
+        self.__available_port = port + 1
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__socket.bind(address(port=port))
         self.__socket.listen()
         print(f"Peer listening on {self.local_address}")
+        
 
     @property
     def local_address(self):
@@ -187,15 +190,27 @@ class Peer:
             case 'error':
                 print(error)
             case 'close':
-                print(f"Connection with peer {connection.remote_address} closed")
                 self.peers.remove(connection.remote_address)
+                self.__peers_sockets[connection.remote_address].close()
+                print(f"Connection with peer {connection.remote_address} closed")
+
     
+    def __connect_to_a_peer(self, address, port):
+        socket_tmp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket_tmp.connect((address, port))
+        port = int.from_bytes(socket_tmp.recv(4), "big")
+
+
+
     def __handle_incoming_connections(self):
         try:
-            socket, address = self.__socket.accept()
-            connection = Connection(socket, self.__connetion_callback)
-            self._connnections[address] = connection
+            socket_tmp, address = self.__socket.accept()
+            socket_tmp.sendall(int.to_bytes(self.__available_port, 4, "big"))
+            socket_tmp.close()
+            self.__peers_sockets[address]
             self.peers.add(address)
+            self._connnections[address] = connection
+
         except Exception as e:
             print(e)
 
