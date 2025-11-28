@@ -148,7 +148,7 @@ def local_ips():
             if addr.family == socket.AF_INET:
                     yield addr.address
 
-EXIT_MESSAGE = "<EXIT>"
+EXIT_MESSAGE = "<EXIT>\0"
 
 class Peer:
     def __init__(self, port, peers=None):
